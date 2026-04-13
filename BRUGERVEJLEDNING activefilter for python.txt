@@ -1,0 +1,734 @@
+======================================================================================================
+BRUGERVEJLEDNING: AKTIV FILTERDESIGNPAKKE
+======================================================================================================
+
+======================================================================================================
+INDLEDNING
+======================================================================================================
+Velkommen til den komplette pakke til design af aktive filtre. 
+Denne softwarepakke er udviklet til teknikere, ingeniører og studerende,
+der arbejder med analog kredsløbsudvikling. 
+
+Pakken består af tre parallelle implementeringer af samme kernealgoritmer:
+1. Python-applikation (3 filer: activefilter.py, sklphp.py, mfbp.py)
+2. MATLAB-scriptfiler med identisk funktionalitet
+3. HTML-baserede webapps til browseradgang uden installation
+
+Formålet er at give brugeren fleksibilitet til at vælge det værktøj,
+der bedst matcher konteksten. 
+Alle versioner beregner filterorden, komponentværdier, genererer 
+frekvensresponskurver og eksporterer SPICE-netlister til videre simulering.
+
+Aktive filtre spiller fortsat en central rolle i moderne elektronikdesign,
+på trods af den massive udbredelse af digitale filtre (FIR/IIR).
+Mens software-baserede filtre tilbyder fleksibilitet, findes der stadig
+mange applikationer hvor aktive hardware-filtre er uundværlige.
+
+Typiske anvendelsesområder inkluderer:
+• Anti-aliasing før A/D-konvertere
+• Båndpasfiltre i RF-modtagere og sendere
+• Equalizere i audioforstærkere og studieudstyr
+• Strømforsyningsfiltrering og støjundertrykkelse
+• Biotech signalbehandling (EKG, EEG)
+• Sensorinterface og tilstandsovervågning
+• Hastighedskritiske realtidsapplikationer
+
+Aktive filtre tilbyder unikke fordele: lav outputimpedans, forstærkning,
+justerbare parametre uden komponentudskiftning, og minimal belastning af
+signalkilder. De undgår desuden behovet for tunge og dyre spoler.
+
+======================================================================================================
+PYTHON-INSTALLATION OG BIBLIOTEKER
+======================================================================================================
+For at køre Python-delen skal følgende være installeret:
+• Python 3.9 eller nyere (hentes fra python.org)
+• Følgende tredjepartsbiblioteker kræves:
+  - PySide6 (GUI-rammeværk)
+  - matplotlib (Grafisk plotning af Bode-diagrammer)
+  - numpy (Numeriske beregninger og matrixoperationer)
+• Standardbiblioteker: sys, math, os, subprocess (indgår i Python)
+
+Installation foretages enkelt via kommandolinjen (terminal/CMD):
+pip install PySide6 matplotlib numpy
+
+Efter installationen placeres de tre Python-filer i samme mappe.
+Start programmet ved at køre: python activefilter.py
+Systemet åbner automatisk en grafisk brugergrænseflade.
+
+======================================================================================================
+INDHOLDSFORTEGNELSE
+======================================================================================================
+1. Systemoversigt og arkitektur
+2. Brugsanvisning: Hovedmenu (activefilter.py)
+3. Sallen-Key Designer (sklphp.py) - Lavpas & Højpas
+4. Multiple Feedback Designer (mfbp.py) - Båndpas
+5. Anvendelseseksempler og designstrategier
+6. Guide til valg af operationsforstærkere
+7. Fejlsøgning og SPICE-integration
+======================================================================================================
+1. SYSTEMOVERSIGT OG ARKITEKTUR
+======================================================================================================
+Pakkens arkitektur er opbygget som en modulær løsning, hvor hver fil
+repræsenterer en specifik del af designprocessen. Hovedprogrammet
+(activefilter.py) fungerer som en central startmenu, der anvender
+PySide6 til at generere en moderne grafisk brugergrænseflade. Herfra
+starter brugeren enten Sallen-Key-designeren (sklphp.py) eller
+Multiple Feedback-designeren (mfbp.py) som uafhængige processer.
+Dette sikrer stabilitet og isolerer eventuelle beregningsfejl.
+Alle tre programmer deler en fælles kerne af matematiske algoritmer
+til pol/nul-beregning, E-række-runding og frekvensrespons-analyse.
+Resultaterne visualiseres dynamisk ved hjælp af matplotlib, der
+integrerer Bode-diagrammer, pol-nul-planer og gruppeløbetid.
+Den underliggende logik understøtter automatisk beregning af
+filterorden baseret på brugerdefinerede stopbåndskrav, hvilket
+eliminerer gættearbejde ved overgangen fra specifikation til
+praktisk kredsløbsdesign.
+
+Sallen-Key LP/HP filtre:
+
+I denne software er filterordensberegningen implementeret således, at
+den altid runder op til nærmeste lige antal poler (2, 4, 6, 8...).
+
+Baggrund for dette designvalg:
+Ved udviklingen af softwaren er det bevidst valgt KUN at understøtte
+kaskadekobling af identiske 2. ordens sektioner. Årsagerne er:
+
+Simpel realisering: Alle sektioner bliver ens i topologi.
+
+Genbrug af komponenter: Færre unikke komponentværdier at
+håndtere.
+
+Robust beregning: Ingen særlige regler for 1. ordens led.
+
+Konsekvenser for brugeren:
+
+Indtastes f.eks. ønsket orden 3, beregner softwaren automatisk et
+4. ordens filter.
+
+Amplitudens rulning pr. dekade fordobles tilsvarende.
+
+Hver sektion (2. orden) tilføjer 2 ekstra komponenter ift. et 1.
+ordens led.
+
+Bemærk: For Butterworth og Chebyshev betyder dette valg, at
+polernes Q-værdier beregnes korrekt for hvert 2. ordens trin, men
+softwaren garanterer at ALLE sektioner er ens i opbygning.
+------------------------------------------------------------------------------------------------------
+BESKRIVELSE AF MODULER
+------------------------------------------------------------------------------------------------------
+Sallen-Key (LP / HP):
+- Bruges til Lavpas- og Højpas-designs.
+- Ideelt til Unity Gain (0 dB) applikationer.
+- Meget stabilt ved lave Q-faktorer.
+
+Multiple Feedback (BP):
+- Bruges udelukkende til Båndpas-designs.
+- Inkluderer "Auto-Gain Compensation", der modvirker det naturlige 
+  tab ved centerfrekvensen.
+- Velegnet til højere Q-faktorer (smalle båndbredder).
+
+======================================================================================================
+2. BRUGSANVISNING: HOVEDMENU (activefilter.py)
+======================================================================================================
+Ved opstart af pakken præsenteres en velkomstskærm med to primære
+valgmuligheder. brugergrænsefladen er designet efter princippet om
+progressiv afsløring, så kun relevante funktioner vises efter behov.
+------------------------------------------------------------------------------------------------------
+Start af program:
+------------------------------------------------------------------------------------------------------
+Åbn terminalen og navigér til mappen med Python-filerne. Udfør
+kommandoen: python activefilter.py. Vinduet "Active Filter design
+program" åbnes centralt på skærmen. Fusion-stilen sikrer ensartet
+udseende på tværs af Windows, macOS og Linux.
+------------------------------------------------------------------------------------------------------
+Navigation og valg:
+------------------------------------------------------------------------------------------------------
+• Sallen-Key designer (knappen i blå nuancer): Vælg denne til
+  design af lavpas- (LP) og højpasfiltre (HP). Velegnet til
+  generelle filtreringsopgaver med lav følsomhed over for
+  komponenttolerancer.
+• Multiple Feedback designer (knappen i grønne nuancer): Vælg denne
+  til båndpasfiltre (BP). Optimal til applikationer, der kræver
+  høj selektivitet inden for et specifikt frekvensbånd.
+------------------------------------------------------------------------------------------------------
+Fejlsikkerhed:
+------------------------------------------------------------------------------------------------------
+Programmet validerer automatisk, om de underliggende filer
+(sklphp.py og mfbp.py) findes i samme bibliotek. Mangler en fil,
+udsendes en tydelig fejlmeddelelse med den korrekte sti. Ved
+systemfejl ved opstart fanges undtagelser og vises i en dialogboks,
+så brugeren kan rette miljøvariabler eller geninstallere
+afhængigheder uden at miste data.
+======================================================================================================
+3. Sallen-Key Designer (sklphp.py) - Lavpas og Højpas
+======================================================================================================
+Dette modul specialiserer sig i design af lavpas- og højpasfiltre ved
+hjælp af Sallen-Key-topologien. Topologien er kendt for sin simplicitet
+og lave følsomhed over for komponenttolerancer, hvilket gør den ideel
+til generelle lyd- og måletekniske applikationer.
+------------------------------------------------------------------------------------------------------
+brugergrænseflade OG INDDATA
+------------------------------------------------------------------------------------------------------
+Ved opstart af sklphp.py præsenteres et opdelt vindue med følgende
+felter under "Filter specifikationer":
+• Type: Vælg "Low-Pass (LP)" for at lade lave frekvenser passere,
+  eller "High-Pass (HP)" for at dæmpe lave frekvenser.
+• Approksimation: Vælg mellem "Butterworth" (maksimalt fladt
+  pasbånd) eller "Chebyshev" (skarere overgang ved tilladt ripple).
+  Ved valg af Chebyshev ændres labelen dynamisk til "Ripple (dB)".
+• Cutoff (fc): Ønsket grænsefrekvens (-3 dB punkt). Enheder: Hz,
+  kHz eller MHz.
+• Stopband (fs): Frekvensen hvor dæmpningen skal opnås.
+• Passband Atten / Ripple: Maksimal tilladt dæmpning i pasbåndet.
+  Standard er 3,0 dB for Butterworth.
+• Stopband Atten: Krævet minimumsdæmpning i stopbåndet (f.eks. 40 dB).
+
+Under "Praktisk Komponent Valg" fastsættes fysiske begrænsninger:
+• Basis kondensator: Startværdi for C1/C2 (f.eks. 10 nF).
+• C E-række & R E-række: Vælg standardiserede værdier (E6, E12,
+  E24, E48, E96). Kondensatorer tvinges til nærmeste højere værdi
+  i LP-tilstand for at sikre stabilitet, mens modstande afrundes
+  til nærmeste værdi.
+------------------------------------------------------------------------------------------------------
+BEREGNINGER OG VISUALISERING
+------------------------------------------------------------------------------------------------------
+Når "Beregn filter" aktiveres, udføres følgende trin:
+1. Softwaren beregner den nødvendige filterorden baseret på kravene
+   for fc, fs og dæmpning. orden afrundes altid op til nærmeste
+   lige tal, da Sallen-Key realiseres i 2. ordens sektioner.
+2. Poler beregnes matematisk for den valgte approksimation.
+3. Komponentværdier (R1, R2, C1, C2) udledes for hver sektion.
+   For lavpasfiltre beregnes en minimumsværdi for C1 for at sikre,
+   at diskriminanten i ligningen for R1/R2 forbliver positiv.
+   Første sektion: R11,C11,R12,C12
+   Anden sektion: R21,C21,R22,C22
+   Tredje sektion: R31,C31,R32,C32
+   osv.
+4. Resultater vises i en tabel med kolonner for komponentnavn,
+   ideel beregnet værdi, E-række valg og Q-faktor.
+5. Fire grafer opdateres automatisk: Magnitude (dB), Fase (grader),
+   Pol-diagram (S-plan) og Gruppeløbetid (ms).
+------------------------------------------------------------------------------------------------------
+STABILITETSINDIKATOR
+------------------------------------------------------------------------------------------------------
+Programmet vurderer automatisk stabiliteten baseret på den maksimale
+Q-faktor. Ved Q < 3,0 vises "God". Ved Q >= 3,0 vises en advarsel
+om kritisk Q-faktor med risiko for ringing i tidsdomænet. Dette
+signalerer behovet for præcisionskomponenter (1 % eller bedre).
+------------------------------------------------------------------------------------------------------
+SPICE-EKSPORT
+------------------------------------------------------------------------------------------------------
+Funktionen "Eksportér SPICE (.cir)" genererer en netliste klar til
+simulering. En afkrydsningsboks "Brug E-række i SPICE" styrer, om
+der eksporteres de afrundede standardværdier eller de eksakte
+matematiske værdier. Netlisten indeholder en ideel OPAMP-model
+(spændingsstyret spændingskilde med gain 1E6), som skal udskiftes
+med en reel komponentmodel før fysisk prototyping.
+======================================================================================================
+4. MULTIPLE FEEDBACK DESIGNER (mfbp.py) - BÅNDPAS
+======================================================================================================
+Dette modul beregner båndpasfiltre baseret på Multiple Feedback (MFB)
+topologien. MFB-kredsløbet er en inverterende struktur, der udmærker
+sig ved høj selektivitet og mulighed for at opnå høj Q-faktor i
+en enkelt operationsforstærker. Det er særligt velegnet til appli-
+kationer, hvor et smalt frekvensbånd skal udtrækkes eller dæmpes.
+------------------------------------------------------------------------------------------------------
+brugergrænseflade OG INDDATA
+------------------------------------------------------------------------------------------------------
+Vinduet er opdelt i specifikationsfelter og komponentvalg:
+• Passband (fn - fø): Definerer det frekvensområde, hvor filteret
+  skal have minimal dæmpning. Indtast nedre og øvre grænse.
+• Stopband (fsn - fsø): Angiver frekvensområderne uden for pass-
+  båndet, hvor den krævede dæmpning skal opnås.
+• Approksimation: Vælg mellem Butterworth (fladt pasbånd) eller
+  Chebyshev (stejlere overgang på bekostning af ripple).
+• Passband Atten / Ripple: Maksimal tilladt dæmpning i pasbåndet.
+• Stopband Atten: Krævet dæmpning i stopbåndet (f.eks. 40 dB).
+• Ønsket Gain (V/V): Forstærkningen ved centerfrekvensen.
+• Basis kondensator: Startværdi for C1 og C2 (programmet antager
+  C1 = C2 for MFB-topologien for at forenkle beregningerne).
+------------------------------------------------------------------------------------------------------
+BEREGNINGSLOGIK OG KOMPONENTVALG
+------------------------------------------------------------------------------------------------------
+MFB-beregningen følger en streng matematisk sekvens:
+1. Filterordenen beregnes ud fra forholdet mellem stopbånd og pass-
+   bånd. orden afrundes op til nærmeste lige tal, da realiserede
+   båndpasfiltre består af kaskadekoblede 2. ordens sektioner.
+2. Lavpas-polér transformerres til båndpas-polér ved lavpas-til-
+   båndpas-transformation. Dette genererer et sæt båndpas-sektioner
+   med specifikke centerfrekvenser (wk) og Q-faktorer (qk).
+3. Programmet beregner den naturlige dæmpning ved centerfrekvensen
+   og kompenserer for denne ved at justere sektionernes gain (Ak),
+   så den samlede forstærkning matcher brugerens ønske.
+4. Komponentværdier (R1, R2, R3, C1, C2) udledes for hver sektion.
+   Første sektion: R11,C11,R12,C12,R13
+   Anden sektion: R21,C21,R22,C22,R23
+   Tredje sektion: R31,C31,R32,C32,R33
+   osv.
+   Hvis det ønskede gain er for højt i forhold til Q-faktoren,
+   reduceres gain automatisk for at sikre realiserbarhed.
+5. Værdierne afrundes til valgte E-rækker. Stabiliteten evalueres
+   automatisk. Ved Q >= 8 vises en advarsel, da høje Q-faktorer
+   kræver præcisionsmodstande og lavt-støj operationsforstærkere.
+------------------------------------------------------------------------------------------------------
+VISUALISERING OG SPICE
+------------------------------------------------------------------------------------------------------
+Efter beregning genereres fire diagrammer: Magnitude (dB), Fase,
+Pol-diagram og Gruppeløbetid. Pol-diagrammet viser placeringen af
+de komplekse poler i S-planet, hvilket direkte indikerer filterets
+dæmpningsegenskaber og stabilitetsmargin. SPICE-eksporten følger
+samme princip som Sallen-Key-modulen, men genererer netlister for
+den inverterende MFB-struktur med korrekt nodetilslutning.
+
+======================================================================================================
+5. ANVENDELSESEKSEMPLER OG DESIGNSTRATEGIER
+======================================================================================================
+For at udnytte pakken fuldt ud er det vigtigt at matche filterkrav
+med den korrekte topologi og designstrategi. Nedenstående eksempler
+illustrerer typiske brugsscenarier.
+------------------------------------------------------------------------------------------------------
+EKSEMPEL 1: LYDTEKNISK LAVPASFILTER (ANTI-ALIASING)
+------------------------------------------------------------------------------------------------------
+Formål: Fjerne højfrekvent støj før en ADC.
+Opsætning: Sallen-Key LP, Butterworth, fc = 20 kHz, fs = 40 kHz,
+Stopband Atten = 60 dB. Basis C = 1 nF, E96 modstande.
+Resultat: Programmet foreslår en 6. ordens løsning (3 sektioner).
+Q-faktorerne er moderate (< 2,0), hvilket sikrer god stabilitet
+og minimal tidsdomæneringning. Brug E24 eller E48 modstande.
+------------------------------------------------------------------------------------------------------
+EKSEMPEL 2: SENSORHØJPAS TIL AC-KOBLING
+------------------------------------------------------------------------------------------------------
+Formål: Fjerne DC-offset og lave frekvensdrift fra tryksensorer.
+Opsætning: Sallen-Key HP, Butterworth, fc = 0,5 Hz.
+Strategi: Vælg stor basis C (f.eks. 10 µF) for at undgå enorme
+modstandsværdier. HP-topologien er mindre følsom over for
+operationsforstærkerens bias-strøm, men store kondensatorer
+kan introducere lækstrøm. Overvej polypropylenkondensatorer.
+------------------------------------------------------------------------------------------------------
+EKSEMPEL 3: KOMMUNIKATIONSBÅNDPAS (FM/AM-SELEKTION)
+------------------------------------------------------------------------------------------------------
+Formål: Isolere en specifik bærefrekvens i en modtager.
+Opsætning: MFB Bandpass, fn = 900 Hz, fo = 1100 Hz, Q = 5.
+Strategi: MFB-topologien håndterer høje Q-faktorer bedre end
+Sallen-Key ved båndpas. Vælg lav kapacitans (f.eks. 100 pF)
+og høj modstand for at minimere belastning af forudgående trin.
+Check stabilitetsindikatoren: Hvis Q > 8, skift til E96/E48
+modstande og overvej en trimmer for finjustering.
+------------------------------------------------------------------------------------------------------
+DESIGNSTRATEGIER OG BEST PRACTICE
+------------------------------------------------------------------------------------------------------
+• Dynamisk impedansniveau: Start altid med at vælge en kondensator,
+  der giver modstandsværdier i området 1 kΩ til 100 kΩ. For lave
+  værdier belaster operationsforstærkeren; for høje værdier øger
+  støj og følsomhed over for parasitære kapaciteter.
+• Kaskadekobling: Højordensfiltre bør opbygges af lav-Q-sektioner
+  først og høj-Q-sektioner sidst. Dette minimerer signalklipning
+  og optimerer dynamikområdet. Programmet sorterer automatisk
+  efter Q-faktor, men fysiske trin bør kobles i rækkefølge.
+• Tolerancer og temperatur: Chebyshev-filtre med høj ripple er
+  mere følsomme over for komponentvariationer. Vælg E48/E96 og
+  kondensatorer med lav temperaturkoefficient (NP0/C0G) til
+  præcisionsapplikationer.
+======================================================================================================
+6. GUIDE TIL VALG AF OPERATIONSFORSTÆRKER
+======================================================================================================
+1. Rail-to-Rail Operationsforstærker (MCP6002, LMV321)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Input/output kan swinge tæt på V+ og V- forsyninger
+    Maksimalt dynamisk output-område ved lav spænding
+    Ofte CMOS-teknologi med lavt strømforbrug
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Single-supply systemer (0-3.3V eller 0-5V)
+    Batteridrevne enheder og IoT-sensorer
+    ADC-buffering for maksimal udnyttelse af range
+    Portable audio og sensor signal-conditioning
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Forsyningsspænding er lav (< 5V)
+    Du har brug for maksimalt output-swing
+    Design uden negativ forsyning (single-supply)
+------------------------------------------------------------------------------------------------------
+2. JFET-Input Operationsforstærker (TL072, TL084)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Meget høj input-impedans (Gigaohm-området)
+    Lav input bias-strøm (picoampere)
+    Lav støj i mellemfrekvens-området
+    God slew rate sammenlignet med bipolare typer
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Aktive filtre og integrator-kredsløb
+    Buffer-trin til høj-impedans sensorer
+    Audio forforstærkere og mixere
+    Sample-and-hold kredsløb
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Kilden har høj output-impedans
+    Lav input bias-strøm er kritisk
+    Du skal minimere loading af signalkilden
+------------------------------------------------------------------------------------------------------
+3. Præcisions Operationsforstærker (OP07, OP177)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Ekstremt lav offset-spænding (mikrovolt)
+    Lav drift over temperatur og tid
+    Høj CMRR og PSRR (støjafvisning)
+    God linearitet og lav forvrængning
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Præcisions måleinstrumenter og DMM
+    Strøm-sensing med shunt-modstande
+    Sensor-interface (termoelementer, strain gauge)
+    Laboratorieudstyr og kalibreringskredsløb
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Præcision er vigtigere end hastighed/strøm
+    Målinger kræver mikrovolt-nøjagtighed
+    Temperaturdrift skal minimeres
+------------------------------------------------------------------------------------------------------
+4. Højhastigheds Operationsforstærker (AD8051, LMH6629)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Høj slew rate (>100 V/µs) og bred båndbredde
+    Lav forvrængning ved høje frekvenser
+    Ofte current-feedback arkitektur
+    Kræver omhyggelig PCB-layout for stabilitet
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Video-forstærkere og ADC-drivere
+    Kommunikationssystemer og RF-mellemtrin
+    Pulsforstærkning og hurtig switching
+    Oscilloskoper og testudstyr
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Signalfrekvens > 1 MHz eller hurtige pulser
+    Du har brug for høj slew rate
+    Båndbredde skal bevares ved højt gain
+------------------------------------------------------------------------------------------------------
+5. Lavstøjs Operationsforstærker (NE5532, OP27)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Minimere termisk og 1/f støj (nV/√Hz)
+    Lav total harmonic distortion (THD)
+    God støjfigur i audio-frekvensbåndet
+    Ofte bipolær input-trin for lav spændingsstøj
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Mikrofonforstærkere og pickup preamps
+    Medicinsk udstyr (EKG, EEG, biopotentialer)
+    Hi-fi audio og professionelle mixere
+    Lav-niveau sensorforstærkning
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Signal-til-støj-forhold er kritisk
+    Du forstærker meget små signaler (< mV)
+    Audio-kvalitet eller målepræcision er vigtig
+------------------------------------------------------------------------------------------------------
+6. Lavenergi / Single-Supply Op-Amp (LM324, TLV2462)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Meget lavt strømforbrug (µA pr. kanal)
+    Fungerer med enkelt forsyning (0V til Vcc)
+    Input kan ofte gå til negativ rail (GND)
+    Ofte rail-to-rail output ved lav strøm
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Batteridrevne sensorer og IoT-nodes
+    Always-on overvågning (røgdetektorer)
+    Portable medicinske enheder
+    Energy harvesting systemer
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Batterilevetid er kritisk (måneder/år)
+    Systemet kører fra enkelt battericelle
+    Båndbredde-krav er moderate (< 100 kHz)
+------------------------------------------------------------------------------------------------------
+7. Audio / Hi-Fi Operationsforstærker (OPA2134, NE5534)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Lav THD+N (< 0.001%) i audible-området
+    God fase-linearitet og transient-respons
+    Høj output-strøm til lav-impedans belastning
+    Optimeret for 20 Hz - 20 kHz frekvensrespons
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Forforstærkere og toneKontrollér
+    Aktive højttalere og subwoofere
+    Professionel audio (mixere, interfaces)
+    Guitar-effekter og instrumentforstærkere
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Lydkvalitet er primær designparameter
+    Du skal drive hovedtelefoner eller linje-out
+    Lav forvrængning ved højt output-niveau
+------------------------------------------------------------------------------------------------------
+8. Højspændings Operationsforstærker (OPA454, PA85)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Tåler forsyningsspændinger op til ±50V eller mere
+    Kan levere høj output-spænding (tens of volts)
+    Ofte beskyttet mod kortslutning og overtemp
+    Større fysisk pakning for varmeafledning
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Piezo-aktuatorer og ultralyd-drivere
+    Industrielle styringer og motor-drivers
+    HV sensor-interface og testudstyr
+    Elektrostatiske applikationer
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Output skal swinge > ±15V
+    Du driver piezo, relay eller HV-aktuator
+    Systemet kræver industriel spændingsrange
+------------------------------------------------------------------------------------------------------
+9. CMOS-Input Operationsforstærker (LMC6482, TLC2272)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+------------------------------------------------------------------------------------------------------
+    Ultrahøj input-impedans (Teraohm)
+    Lav input bias-strøm (femto- til picoampere)
+    Rail-to-rail input og output muligt
+    Lavt strømforbrug med moderne CMOS-proces
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    pH-elektroder og kemiske sensorer
+    Elektrometer og ladningsforstærkere
+    Fotodiode-transimpedans forstærkere
+    Kapacitive sensorer og touch-interface
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Input-strøm skal minimeres (fA-området)
+    Kilde-impedans er meget høj (> 100 MΩ)
+    Lav spændingsdrift med rail-to-rail behov
+------------------------------------------------------------------------------------------------------
+10. Current-Feedback / CMOD Op-Amp (AD844, LM6181)
+------------------------------------------------------------------------------------------------------
+Karakteristika:
+
+    Slew rate uafhængig af lukket sløjfe-gain
+    Høj båndbredde selv ved højt gain
+    Lavere input-impedans på inverterende indgang
+    Kræver specifik feedback-modstand for stabilitet
+------------------------------------------------------------------------------------------------------
+Typiske anvendelser:
+------------------------------------------------------------------------------------------------------
+    Video distribution og buffering
+    Pulsgeneratorer og hurtig switching
+    RF-mellemtrin og kommunikation
+    Professionel audio med høj hastighed
+------------------------------------------------------------------------------------------------------
+Når du skal vælge den:
+------------------------------------------------------------------------------------------------------
+    Du skal have konstant båndbredde ved variabelt gain
+    Slew rate > 500 V/µs er nødvendigt
+    Applikationen kræver høj hastighed ved højt gain
+------------------------------------------------------------------------------------------------------
+10. Rail-to-Rail Op-Amps (MCP6002, LMV321)
+------------------------------------------------------------------------------------------------------
+MCP6001, MCP6002, MCP6004, MCP6021, MCP6022, MCP6024, MCP6L01, MCP6L02, 
+LMV321, LMV358, LMV324, LMV7219, LMV611, LMV641, LMV772, LMV841, LMV842, 
+TLV2371, TLV2372, TLV2462, TLV2472, TLV272, TLV9001, TLV9002, TLV9062, 
+AD8605, AD8606, AD8608, AD8628, AD8638, AD8639, ADA4661, ADA4691, 
+OPA2333, OPA2350, OPA333, OPA335, OPA340, OPA344, OPA365, OPA376, 
+MAX44246, MAX44260, MAX999, MAX4230, MAX4238, MAX4239, MAX44205, 
+TS912, TSX922, TSX923, TSZ121, TSZ122, NCS2001, NCS2002, NCS210, NCS214
+------------------------------------------------------------------------------------------------------
+11. JFET-Input Op-Amps (TL072, TL084)
+------------------------------------------------------------------------------------------------------
+TL071, TL072, TL074, TL081, TL082, TL084, LF351, LF353, LF356, LF357, 
+LF411, LF412, LF441, LF442, OPA132, OPA134, OPA2132, OPA2134, OPA1642, 
+AD823, AD825, AD826, AD827, AD843, AD845, AD847, AD8610, AD8620, 
+NJM4580, NJM4558, NJM2068, NJM4565, BA4560, BA4580, BA4565, RC4558, 
+CA3140, CA3130, ICL7652, ICL7653, HA5134, HA5144, HA5221, HA5222
+------------------------------------------------------------------------------------------------------
+12. Præcisions/Low-Offset Op-Amps (OP07, OP177)
+------------------------------------------------------------------------------------------------------
+OP07, OP177, OP277, OP377, OP477, OP27, OP37, OP1177, OP184, OP284, 
+ADA4522, ADA4528, ADA4052, ADA4500, ADA4505, ADA4622, ADA4625, ADA4627, 
+LTC2050, LTC2057, LTC2063, LTC2054, LTC2055, LT1012, LT1013, LT1014, 
+LT1028, LT1128, LT1677, LT1678, LT1793, LT1880, LT1881, LT1882, 
+MAX4239, MAX44205, MAX4208, MAX4209, MAX4210, MAX4211, MAX44260, 
+OPA227, OPA228, OPA277, OPA2188, OPA2189, OPA2192, OPA2196, OPA2197, 
+LM108, LM112, LM108A, LM308, LM312, LM725, LM741A, LM741C, LM741E
+------------------------------------------------------------------------------------------------------
+13. Højhastigheds/High-Speed Op-Amps (AD8051, LMH6629)
+------------------------------------------------------------------------------------------------------
+AD8051, AD8052, AD8055, AD8056, AD8057, AD8058, AD8001, AD8009, AD8041, 
+AD8042, AD8044, AD8045, AD8047, AD8048, AD8065, AD8066, AD8067, AD8072, 
+LMH6629, LMH6702, LMH6624, LMH6642, LMH6643, LMH6644, LMH6645, LMH6646, 
+THS3091, THS3095, THS4031, THS4032, THS4051, THS4052, THS4061, THS4062, 
+OPA690, OPA695, OPA847, OPA848, OPA858, OPA859, OPA657, OPA659, OPA691, 
+MAX435, MAX436, MAX437, MAX438, MAX439, MAX4450, MAX4451, MAX4452, 
+EL5160, EL2070, EL2071, EL2072, EL2073, EL2074, EL2075, EL2076, EL2077, 
+CLC400, CLC449, CLC450, CLC451, CLC452, CLC453, CLC454, CLC455, CLC456
+------------------------------------------------------------------------------------------------------
+14. Lavstøjs/Low-Noise Op-Amps (NE5532, OP27)
+------------------------------------------------------------------------------------------------------
+NE5532, NE5534, SA5532, SA5534, NJM4580, NJM4558, NJM2068, NJM4565, 
+OP27, OP37, OP270, OP271, OP370, OP371, OPA211, OPA2134, OPA1611, 
+OPA1612, OPA1641, OPA1642, OPA1652, OPA1656, OPA1662, OPA1678, OPA1679, 
+AD797, AD743, AD745, AD795, AD829, AD8610, AD8620, ADA4895, ADA4896, 
+ADA4897, ADA4898, ADA4899, LT1028, LT1128, LT1115, LT1007, LT1037, 
+MAX977, MAX4140, MAX4141, MAX4142, MAX4143, MAX4144, MAX4145, MAX4146, 
+LM4562, LME49720, LME49710, LME49860, LME49990, BA4560, BA4580, BA4565
+------------------------------------------------------------------------------------------------------
+15. Lavenergi/Low-Power Single-Supply (LM324, TLV2462)
+------------------------------------------------------------------------------------------------------
+LM321, LM358, LM324, LM2902, LM2904, LMV321, LMV358, LMV324, LMV7219, 
+MCP6021, MCP6022, MCP6024, MCP6L01, MCP6L02, MCP6V01, MCP6V02, MCP6V03, 
+TLV2371, TLV2372, TLV2462, TLV2472, TLV272, TLV9001, TLV9002, TLV9062, 
+LPV321, LPV358, LPV324, LPV521, LPV811, LPV821, NCS210, NCS214, NCS270, 
+MAX44260, MAX44280, MAX4230, MAX4238, MAX4239, MAX44205, MAX44246, 
+OPA333, OPA335, OPA340, OPA344, OPA365, OPA376, OPA2333, OPA2350, 
+TS912, TSX922, TSX923, TSZ121, TSZ122, NCS2001, NCS2002, NCS2003
+------------------------------------------------------------------------------------------------------
+16. Audio/Hi-Fi Op-Amps (OPA2134, NE5534)
+------------------------------------------------------------------------------------------------------
+NE5532, NE5534, SA5532, SA5534, NJM4580, NJM4558, NJM2068, NJM4565, 
+OPA2134, OPA134, OPA1642, OPA1611, OPA1612, OPA1652, OPA1656, OPA1662, 
+LM4562, LME49720, LME49710, LME49860, LME49990, LM833, LM4562, LM49720, 
+AD825, AD827, AD843, AD845, AD847, AD8610, AD8620, ADA4895, ADA4896, 
+MAX4140, MAX977, MAX4141, MAX4142, MAX4143, MAX4144, MAX4145, MAX4146, 
+BA4560, BA4580, BA4565, BA4558, RC4558, RC4560, NJM4558, NJM4580, 
+TDA2030, TDA2050, LM1875, LM3886, LM4780, LM49810, OPA541, OPA547
+------------------------------------------------------------------------------------------------------
+17. Højspændings/High-Voltage Op-Amps (OPA454, PA85)
+------------------------------------------------------------------------------------------------------
+OPA454, OPA462, OPA541, OPA547, OPA549, OPA551, OPA552, PA85, PA124, 
+PA03, PA04, PA05, PA09, PA12, PA22, PA24, PA25, PA26, PA33, PA34, 
+LM675, LM1875, LM3886, LM4780, LM49810, THS3491, THS4031, THS4051, 
+AD8033, AD8034, AD8035, AD8036, AD8037, AD8038, AD8039, AD8041, AD8042, 
+LT1210, LT1227, LT1228, LT1229, LT1230, LT1231, LT1232, LT1233, LT1234, 
+MAX435, MAX436, MAX437, MAX438, MAX439, MAX4450, MAX4451, MAX4452, 
+EL2070, EL2071, EL2072, EL2073, EL2074, EL2075, EL2076, EL2077, EL5160
+------------------------------------------------------------------------------------------------------
+18. CMOS-Input Op-Amps (LMC6482, TLC2272)
+------------------------------------------------------------------------------------------------------
+LMC6481, LMC6482, LMC6484, LMC660, LMC661, LMC662, LMC663, LMC664, 
+TLC2272, TLC2274, TLC2652, TLC2654, TLC272, TLC274, TLC277, TLC279, 
+MCP6L01, MCP6L02, MCP6L03, MCP6L04, MCP6V01, MCP6V02, MCP6V03, MCP6V04, 
+AD8603, AD8605, AD8606, AD8608, AD8628, AD8638, AD8639, ADA4661, ADA4691, 
+MAX4230, MAX4238, MAX4239, MAX44205, MAX44246, MAX44260, MAX44280, 
+TSX922, TSX923, TSZ121, TSZ122, NCS2001, NCS2002, NCS2003, NCS2004, 
+OPA333, OPA335, OPA340, OPA344, OPA365, OPA376, OPA2333, OPA2350, OPA2365
+------------------------------------------------------------------------------------------------------
+19. Current-Feedback/CMOD Op-Amps (AD844, LM6181)
+------------------------------------------------------------------------------------------------------
+AD844, AD846, AD847, AD848, AD849, AD8001, AD8009, AD8041, AD8042, 
+LM6181, LM6211, LM6212, LM6213, LM6214, LM6215, LM6216, LM6217, LM6218, 
+THS3001, THS3091, THS3095, THS4031, THS4051, THS4061, THS4062, THS4071, 
+OPA690, OPA695, OPA847, OPA848, OPA858, OPA859, OPA657, OPA659, OPA691, 
+EL2070, EL2071, EL2072, EL2073, EL2074, EL2075, EL2076, EL2077, EL5160, 
+CLC400, CLC449, CLC450, CLC451, CLC452, CLC453, CLC454, CLC455, CLC456, 
+MAX435, MAX436, MAX437, MAX438, MAX439, MAX4450, MAX4451, MAX4452
+------------------------------------------------------------------------------------------------------
+20. Zero-Drift/Chopper-Stabilized Op-Amps
+------------------------------------------------------------------------------------------------------
+LTC2050, LTC2057, LTC2063, LTC2054, LTC2055, LTC2066, LTC2067, LTC2068, 
+ADA4522, ADA4528, ADA4052, ADA4500, ADA4505, ADA4622, ADA4625, ADA4627, 
+MAX4239, MAX44205, MAX4208, MAX4209, MAX4210, MAX4211, MAX44260, 
+OPA333, OPA335, OPA2188, OPA2189, OPA2192, OPA2196, OPA2197, OPA2333, 
+TSZ121, TSZ122, TSZ321, TSZ322, NCS210, NCS214, NCS270, NCS271, 
+MCP6V01, MCP6V02, MCP6V03, MCP6V04, MCP6V11, MCP6V12, MCP6V13, MCP6V14, 
+ISL28022, ISL28023, ISL28024, ISL28025, ISL28026, ISL28027, ISL28028
+------------------------------------------------------------------------------------------------------
+21. Power Op-Amps (LM675, OPA541)
+------------------------------------------------------------------------------------------------------
+LM675, LM1875, LM3886, LM4780, LM49810, OPA541, OPA547, OPA549, OPA551, 
+OPA552, PA03, PA04, PA05, PA09, PA12, PA22, PA24, PA25, PA26, PA33, 
+PA34, PA85, PA124, TDA2030, TDA2050, TDA7293, TDA7294, TDA7375, TDA7377, 
+THS3491, THS4031, THS4051, AD8033, AD8034, AD8035, AD8036, AD8037, 
+LT1210, LT1227, LT1228, LT1229, LT1230, LT1231, LT1232, LT1233, LT1234
+------------------------------------------------------------------------------------------------------
+22. General Purpose Op-Amps (LM741, LM358)
+------------------------------------------------------------------------------------------------------
+LM741, LM741A, LM741C, LM741E, μA741, MC1741, MC1458, RC4558, RC4560, 
+LM358, LM324, LM2902, LM2904, NJM4558, NJM4580, BA4558, BA4560, BA4580, 
+CA3140, CA3130, ICL7652, ICL7653, HA5134, HA5144, HA5221, HA5222, 
+TL062, TL064, TL072, TL074, TL082, TL084, LF353, LF356, LF412, LF442, 
+MC33171, MC33172, MC33174, MC33178, MC33179, MC33272, MC33274, MC34071, 
+NCS210, NCS214, NCS270, NCS271, NCS2001, NCS2002, NCS2003, NCS2004, 
+TS912, TS922, TS924, TSX922, TSX923, TSZ121, TSZ122, TSZ321, TSZ322
+------------------------------------------------------------------------------------------------------
+23. Sammenligningstabel
+------------------------------------------------------------------------------------------------------
+Type              Primær parameter  Strøm     Forsyning  Hovedapplikation
+
+Rail-to-Rail      Output swing      Lav       1.8-5V     Single-supply, ADC
+JFET-Input        Input impedans    Medium    ±5-±15V    Filtre, buffer
+Præcision         Offset/Drift      Medium    ±5-±15V    Måleinstrumenter
+Højhastighed      Slew rate/BW      Højt      ±5-±15V    Video, RF, puls
+Lavstøjs          Støjfigur         Medium    ±5-±15V    Audio, bio-sensor
+Lavenergi         Strømforbrug      Meget lav 1.8-5V     IoT, batteri
+Audio/Hi-Fi       THD+N/Linearitet  Medium    ±5-±15V    Lydforstærkning
+Højspænding       Vsupply max       Højt      ±25-±100V  Piezo, industriel
+CMOS-Input        Bias strøm        Lav       1.8-16V    pH, elektrometer
+Current-Feedback  Hastighed@Gain    Højt      ±5-±15V    Video, kommunikation
+Zero-Drift        Offset drift      Lav       1.8-5.5V   Præcisionsmåling
+Power Op-Amp      Output strøm      Højt      ±10-±50V   Motor, audio sluttrin
+======================================================================================================
+24. Valg-guide - Start med at spørge:
+======================================================================================================
+I. Hvad er forsyningsspændingen?
+   < 3.3V → Rail-to-Rail, Low Voltage, CMOS, Zero-Drift
+   ±5V til ±15V → Bipolar, JFET, Precision, Audio, High-Speed
+   > ±15V → High-Voltage, Power Op-Amps
+
+II.Hvor vigtigt er strømforbruget?
+   Kritisk (µA/nA) → Low Power, CMOS, Zero-Drift, MCP/TLV-serier
+   Mindre vigtigt → Bipolar, JFET, High-Speed for bedre performance
+
+III.Hvilken hastighed/båndbredde kræves?
+   < 100 kHz → De fleste typer OK (LM358, TL072, OP07)
+   100 kHz - 10 MHz → NE5532, OPA2134, AD823, TL082
+   > 10 MHz → AD8051, LMH6629, THS3091, OPA690, AD844
+
+IV.Hvor præcis skal målingen være?
+   Millivolt-niveau → LM358, TL072, LM741 OK
+   Mikrovolt-niveau → OP07, OP177, ADA4522, LTC2050, MAX4239
+   Nanovolt-niveau → Zero-drift chopper: ADA4528, LTC2063, OPA2188
+
+V. Hvad er kilde-impedansen?
+   Lav (< 1kΩ) → Bipolar (NE5532, OP27) for lavest spændingsstøj
+   Medium (1k-100k) → De fleste typer OK, vælg efter andre parametre
+   Høj (> 1MΩ) → JFET (TL072) eller CMOS (LMC6482) for lav bias-strøm
+
+VI.Hvilken belastning skal drives?
+   Høj strøm (> 50mA) → Power op-amp: LM675, OPA541, TDA2030
+   Lav strøm (< 10mA) → Standard output er tilstrækkeligt
+   Kapacitiv belastning → Vælg type med stabilitet ved kapacitiv load
+======================================================================================================
+7. Fejlsøgning og SPICE-integration
+======================================================================================================
+- Hvis knapperne i menuen ikke virker: Kontrollér at filerne "sklphp.py" og "mfbp.py" er navngivet
+  korrekt og ligger i samme mappe som launcheren.
+- Ved ulogiske resultater: Tjek at stopbåndsfrekvensen er sat korrekt i forhold til pasbåndet
+  (f.eks. skal fs være højere end fc for et lavpas-filter).

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Design System - Main Hub</title>
+    <style>
+        :root {
+            --primary: #2c6c91; --secondary: #4a9ed8; --accent-bp: #e67e22;
+            --bg: #f5f9fc; --box-bg: #ffffff; --text: #333; --border: #d1e3f0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg); color: var(--text);
+            margin: 0; display: flex; align-items: center; justify-content: center;
+            min-height: 100vh;
+        }
+        .hub-container {
+            max-width: 800px; width: 90%; background: var(--box-bg);
+            padding: 40px; border-radius: 12px; border: 1px solid var(--border);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center;
+        }
+        h1 { color: var(--primary); margin-bottom: 20px; font-size: 2em; }
+        .description {
+            text-align: left; line-height: 1.6; margin-bottom: 30px;
+            padding: 20px; background: #f9fbfc; border-left: 4px solid var(--secondary);
+        }
+        .feature-list {
+            text-align: left; margin: 20px 0; padding-left: 20px;
+        }
+        .feature-list li { margin-bottom: 10px; }
+        .button-group {
+            display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 15px 30px; font-size: 1.1em; font-weight: bold; border: none;
+            border-radius: 6px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            color: white; text-decoration: none; min-width: 250px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-sk { background-color: var(--primary); }
+        .btn-sk:hover { background-color: var(--secondary); box-shadow: 0 4px 10px rgba(44,108,145,0.3); }
+        .btn-mfb { background-color: #27ae60; }
+        .btn-mfb:hover { background-color: #2ecc71; box-shadow: 0 4px 10px rgba(39,174,96,0.3); }
+        
+        @media (max-width: 600px) {
+            .hub-container { padding: 20px; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hub-container">
+    <h1>Active filter design program</h1>
+    
+    <div class="description">
+        <strong>Om programmet:</strong><br>
+        Dette er et professionelt hjælpemiddel til teknikere, ingeniører og studerende, 
+        der arbejder med design af aktive filtre. Systemet automatiserer de komplekse 
+        beregninger, der er nødvendige for at opnå præcise filterkarakteristikker.
+        
+        <ul class="feature-list">
+            <li>Beregning af præcise komponentværdier (E-rækker).</li>
+            <li>Interaktive Bode-plots (Magnitude og Fase).</li>
+            <li>Visualisering af pol-placeringer i S-planen.</li>
+            <li>Analyse af gruppeløbetid (Group Delay).</li>
+            <li>Eksport af SPICE netlister til LTspice simulering.</li>
+        </ul>
+    </div>
+
+    <p>Vælg venligst den ønskede filtertopologi for at starte designet:</p>
+
+    <div class="button-group">
+        <button class="btn btn-sk" onclick="openModule('sklphp.html')">
+            Sallen-Key (LP-HP)
+        </button>
+        <button class="btn btn-mfb" onclick="openModule('mfbp.html')">
+            Multiple Feedback (BP)
+        </button>
+    </div>
+</div>
+
+<script>
+    function openModule(url) {
+        window.open(url, '_blank');
+    }
+</script>
+
+</body>
+</html>

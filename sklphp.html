@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<!--
+=============================================================================
+FIL: sklphp.html
+PROGRAM: Sallen-Key Filter Design
+SPROG: Dansk med dansk retstavning iflg. Dansk Sprognævn
+FORMÅL: Interaktivt designværktøj til Sallen-Key aktive filtre
+FORFATTER: (Automatisk genereret kommenteret version)
+LICENS: Open source til undervisningsbrug
+=============================================================================
+
+OVERSIGT OVER PROGRAMMET:
+=============================================================================
+Dette HTML-dokument implementerer et komplet værktøj til beregning,
+simulering og visualisering af Sallen-Key filtre af 2. orden (kaskadet).
+
+HVAD KAN PROGRAMMET:
+1. Beregne nødvendig filterorden ud fra specifikationer
+2. Vælge mellem Butterworth og Chebyshev approksimationer
+3. Designe praktiske komponentværdier (modstande/kondensatorer)
+4. Tvinge komponenter til E-rækker (E6, E12, E24, E48, E96)
+5. Vise Bode-diagrammer (magnitude, fase, gruppeløbetid)
+6. Vise pol-nul diagram i s-planet
+7. Eksportere SPICE-netliste til ekstern simulering
+
+TEORETISK BAGGRUND:
+- Sallen-Key topologi: Non-inverterende forstærker med positiv feedback
+- Overføringsfunktion: H(s) = (K * ω0²) / (s² + s·ω0/Q + ω0²)
+- Butterworth: Maksimal fladhed i pasbåndet (Q = 0,7071 for 2. orden)
+- Chebyshev: Stejlere overgang, men med ripple i pasbåndet
+
+BRUGSVEJLEDNING (kort):
+1. Vælg filtertype (Low-Pass/High-Pass)
+2. Vælg approksimation (Butterworth/Chebyshev)
+3. Indtast cutoff-frekvens (fc) og stopbåndsfrekvens (fs)
+4. Indtast dæmpningskrav (As i dB)
+5. Vælg basis kondensatorværdi (startværdi for C2)
+6. Vælg E-rækker for kondensatorer og modstande
+7. Klik "Beregn filter"
+8. Studér resultater i tabel og grafer
+9. Eksportér eventuelt til SPICE
+
+=============================================================================
+-->
+<html lang="da"> <!-- Sprog sat til dansk for korrekt tekstvisning -->
+<head>
+    <meta charset="UTF-8"> <!-- Unicode-tegnsæt understøtter danske bogstaver æøå -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Viewport sikrer korrekt skalering på mobile enheder -->
+    <title>Sallen-Key Filter design</title>
+    <!-- Chart.js: Bibliotek til grafisk visning af Bode-diagrammer -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- chartjs-plugin-annotation: Tilføjer lodrette hjælpelinjer i grafer -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+        /* ================================================================
+           CSS VARIABLER (CSS Custom Properties)
+           ================================================================
+           Formål: Central styring af farvetema for hele applikationen.
+           Disse variabler gør det nemt at skifte udseende ét sted.
+           --------------------------------------------------------------*/
+        :root {
+            --primary: #2c6c91;      /* Hovedfarve: Mørk blå til overskrifter/knapper */
+            --secondary: #4a9ed8;    /* Sekundærfarve: Lys blå til hover-effekter */
+            --bg: #f5f9fc;           /* Baggrundsfarve: Meget lys blå-grå */
+            --box-bg: #ffffff;       /* Baggrund for indholdsbokse: Hvid */
+            --text: #333;            /* Standard tekstfarve: Mørkegrå */
+            --border: #d1e3f0;       /* Kantlinjefarve: Lys blå-grå */
+        }
+        
+        /* ================================================================
+           GLOBALE STYLES
+           ================================================================ */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* 'Segoe UI' er moderne og læsbar på Windows/Linux/Mac */
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 20px;
+            /* Fjerner browserens standardmarginer, tilføjer polstring */
+        }
+        .container {
+            max-width: 1200px;   /* Begrænser bredden på store skærme */
+            margin: 0 auto;      /* Centrerer beholderen horisontalt */
+        }
+        h1 { color: var(--primary); margin-top: 0; }
+        
+        /* Grid Layout - to kolonner til inputpaneler */
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;  /* To lige brede kolonner */
+            gap: 20px;                       /* Mellemrum mellem kolonner */
+            margin-bottom: 20px;
+        }
+        /* Responsivt: På små skærme (under 800px) bliver det én kolonne */
+        @media (max-width: 800px) { .panels { grid-template-columns: 1fr; } }
+        
+        /* Indholdsgruppebokse (f.eks. "Filter specifikationer") */
+        .group-box {
+            background: var(--box-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;    /* Afrundede hjørner */
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Let skygge */
+        }
+        .group-box h2 {
+            font-size: 1.1em;
+            color: var(--primary);
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+        }
+	.group-box, .image-box {
+            background: var(--box-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .group-box h2, .image-box h2 {
+            font-size: 1.1em; color: var(--primary); margin-top: 0; margin-bottom: 15px;
+            border-bottom: 1px solid var(--border); padding-bottom: 5px;
+        }
+
+        /* Billedboks specifik styling */
+        .image-box { margin-top: 20px; text-align: center; }
+        .image-box img { max-width: 100%; height: auto; border-radius: 4px; }
+
+        /* Formular-grid: Etiket, input, ekstra kolonne (fx enhed) */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 180px 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+        .form-grid label { font-weight: 500; font-size: 0.95em; }
+        
+        /* Inputfelter: Tekst, tal, select (dropdown) */
+        input[type="text"], input[type="number"], select {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.95em;
+            width: 100%;
+            box-sizing: border-box; /* Padding inkluderes i bredden */
+        }
+        
+        /* Knap-sektion og statuslinje */
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: var(--box-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s; /* Glidende overgang ved hover */
+        }
+        button:hover { background: var(--secondary); }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .status-labels { flex-grow: 1; text-align: right; }
+        #lblOrder { color: var(--primary); font-weight: bold; margin-right: 20px; }
+        #lblStability { font-weight: bold; }
+        
+        /* Tabel til visning af komponenter */
+        table {
+            width: 100%;
+            border-collapse: collapse; /* Fjerner dobbeltkanter */
+            margin-bottom: 20px;
+            background: var(--box-bg);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th { background: #e8f1f8; color: var(--primary); }
+        .text-green { color: #28a745; font-weight: 600; } /* Grøn til E-række valg */
+        
+        /* Grafer: To kolonner, responsivt */
+        .plots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) { .plots { grid-template-columns: 1fr; } }
+        .chart-container {
+            background: var(--box-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            position: relative;
+            height: 350px;      /* Fast højde til Chart.js canvas */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Sallen-Key Filter design<span style="font-size: 0.5em; color: #666;"></span></h1>
+
+    <!-- ================================================================
+         PANEL 1: FILTER SPECIFIKATIONER
+         ================================================================ -->
+    <div class="panels">
+        <div class="group-box">
+            <h2>Filter specifikationer</h2>
+            <div class="form-grid">
+                <label>Type:</label>
+                <select id="type">
+                    <option value="LP">Low-Pass (LP)</option>
+                    <option value="HP">High-Pass (HP)</option>
+                </select>
+                <span></span> <!-- Tom plads til grid-align -->
+                
+                <label>Approksimation:</label>
+                <!-- onchange="updateUI()" opdaterer labeltekst afhængigt af valg -->
+                <select id="approx" onchange="updateUI()">
+                    <option value="Butterworth">Butterworth</option>
+                    <option value="Chebyshev">Chebyshev</option>
+                </select>
+                <span></span>
+                
+                <label>Cutoff (fc):</label>
+                <input type="number" id="fc" value="1000">
+                <select id="fc_unit">
+                    <option value="Hz">Hz</option>
+                    <option value="kHz">kHz</option>
+                    <option value="MHz">MHz</option>
+                </select>
+                
+                <label>Stopband (fs):</label>
+                <input type="number" id="fs" value="4000">
+                <select id="fs_unit">
+                    <option value="Hz">Hz</option>
+                    <option value="kHz">kHz</option>
+                    <option value="MHz">MHz</option>
+                </select>
+                
+                <label id="lblAc">Passband Atten (dB):</label>
+                <!-- step="0.1" tillader decimaler til præcis ripple/dæmpning -->
+                <input type="number" step="0.1" id="ac" value="3">
+                <span></span>
+                
+                <label>Stopband Atten (dB):</label>
+                <input type="number" id="as" value="40">
+                <span></span>
+            </div>
+        </div>
+
+        <!-- ================================================================
+             PANEL 2: PRAKTISKE KOMPONENT VALG (E-RÆKKER)
+             ================================================================ -->
+        <div class="group-box">
+            <h2>Praktisk komponent valg</h2>
+            <div class="form-grid">
+                <label>Basis Kondensator:</label>
+                <input type="number" id="c_val" value="10">
+                <select id="c_unit">
+                    <option value="nF">nF</option>
+                    <option value="uF">uF</option>
+                    <option value="pF">pF</option>
+                </select>
+                
+                <label>C E-række grænse:</label>
+                <select id="e_c">
+                    <option value="E6">E6</option>
+                    <option value="E12" selected>E12</option>
+                    <!-- selected: E12 er standardvalg -->
+                </select>
+                <span></span>
+                
+                <label>R E-række grænse:</label>
+                <select id="e_r">
+                    <option value="E12">E12</option>
+                    <option value="E24">E24</option>
+                    <option value="E48">E48</option>
+                    <option value="E96" selected>E96</option>
+                </select>
+                <span></span>
+                
+                <label style="grid-column: 1 / 4; color: #666; font-style: italic; margin-top: 5px;">
+                    (Kondensatorer tvinges til valgt E-række)
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         KNAPSEKTION MED STATUSLINJE
+         ================================================================ -->
+    <div class="controls">
+        <button onclick="calculateFilter()">Beregn filter</button>
+        <button id="btnSpice" onclick="exportSpice()" disabled>Eksportér SPICE (.cir)</button>
+        <!-- checkbox: Om SPICE-eksport skal bruge E-række-standardiserede værdier -->
+        <label><input type="checkbox" id="spiceStd" checked> Brug E-række i SPICE</label>
+        
+        <div class="status-labels">
+            <span id="lblOrder">Filter Orden: -</span>
+            <span id="lblStability">Stabilitet: Venter...</span>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         KOMPONENTTABEL: Viser beregnede R- og C-værdier
+         ================================================================ -->
+    <table>
+        <thead>
+            <tr>
+                <th>Komponent</th>
+                <th>Ideel / Krævet</th>
+                <th>E-række valg</th>
+                <th>Q-faktor</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <!-- JavaScript udfylder dynamisk rækker her -->
+        </tbody>
+    </table>
+
+    <!-- ================================================================
+         GRAFOMRÅDE: Fire diagrammer
+         ================================================================ -->
+    <div class="plots">
+        <div class="chart-container"><canvas id="magChart"></canvas></div>
+        <!-- Magnitude-diagram (dB) -->
+        <div class="chart-container"><canvas id="pzChart"></canvas></div>
+        <!-- Pol-nul diagram (s-plan) -->
+        <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        <!-- Fasediagram (grader) -->
+        <div class="chart-container"><canvas id="gdChart"></canvas></div>
+        <!-- Gruppeløbetidsdiagram (Group Delay) -->
+    </div>
+        <!-- ================================================================
+         GRAFOMRÅDE: Referencediagram
+         ================================================================ -->
+    <div class="image-box">
+        <h2>Reference Diagram for LP (Byt om på R og C ved HP)</h2>
+        <img src="sklp.png" alt="Sallen-Key Filter Kredsløb">
+    </div>
+</div>
+
+<script>
+//===========================================================================
+// SEKTION 1: KOMPLEKS MATEMATIK KLASSE
+//===========================================================================
+// Formål: Håndtering af komplekse tal til beregning af overføringsfunktioner
+// Anvendelse: Beregning af H(s) hvor s = jω (imaginær frekvensakse)
+//===========================================================================
+class Complex {
+    // Constructor: Opretter et komplekst tal med realdel (re) og imaginærdel (im)
+    constructor(re, im) { 
+        this.re = re;   // Real-del (Re)
+        this.im = im;   // Imaginær-del (Im)
+    }
+    
+    // Multiplikation: (a+jb)*(c+jd) = (ac-bd) + j(ad+bc)
+    mul(c) { 
+        return new Complex(
+            this.re * c.re - this.im * c.im,   // Real-del af produkt
+            this.re * c.im + this.im * c.re    // Imaginær-del af produkt
+        );
+    }
+    
+    // Division: (a+jb)/(c+jd) = ((a+jb)*(c-jd))/(c²+d²)
+    div(c) { 
+        const den = c.re * c.re + c.im * c.im;  // Nævnerens kvadratiske norm
+        return new Complex(
+            (this.re * c.re + this.im * c.im) / den,   // Real-del
+            (this.im * c.re - this.re * c.im) / den    // Imaginær-del
+        );
+    }
+    
+    // Addition: (a+jb)+(c+jd) = (a+c) + j(b+d)
+    add(c) { 
+        return new Complex(this.re + c.re, this.im + c.im);
+    }
+    
+    // Magnitude (absolut værdi): |z| = √(a² + b²)
+    mag() { 
+        return Math.sqrt(this.re * this.re + this.im * this.im);
+    }
+    
+    // Fase (argument): φ = atan2(b, a) i radianer
+    phase() { 
+        return Math.atan2(this.im, this.re);
+    }
+}
+
+//===========================================================================
+// SEKTION 2: E-RÆKKE DEFINITIONER
+//===========================================================================
+// Formål: Standardiserede komponentværdier til reel produktion
+// Teori: E-rækker definerer præferenceværdier med specificeret tolerance
+//         E6: ±20%, E12: ±10%, E24: ±5%, E48: ±2%, E96: ±1%
+//===========================================================================
+const E_SERIES = {
+    // E6: 6 værdier pr. dekade, tolerance ±20%
+    'E6': [1.0, 1.5, 2.2, 3.3, 4.7, 6.8],
+    
+    // E12: 12 værdier pr. dekade, tolerance ±10%
+    'E12': [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2],
+    
+    // E24: 24 værdier pr. dekade, tolerance ±5%
+    'E24': [1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 
+            3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1],
+    
+    // E48: 48 værdier pr. dekade, tolerance ±2%
+    'E48': [1.00, 1.05, 1.10, 1.15, 1.21, 1.27, 1.33, 1.40, 1.47, 1.54, 
+            1.62, 1.69, 1.78, 1.87, 1.96, 2.05, 2.15, 2.26, 2.37, 2.49, 
+            2.61, 2.74, 2.87, 3.01, 3.16, 3.32, 3.48, 3.65, 3.83, 4.02, 
+            4.22, 4.42, 4.64, 4.87, 5.11, 5.36, 5.62, 5.90, 6.19, 6.49, 
+            6.81, 7.15, 7.50, 7.87, 8.25, 8.66, 9.09, 9.53],
+    
+    'E96': []   // E96 genereres dynamisk nedenfor (96 værdier, tolerance ±1%)
+};
+
+// Generering af E96-rækken: 10^(i/96) for i = 0..95
+// Formlen skaber en geometrisk fordeling med 96 trin pr. dekade
+for(let i = 0; i < 96; i++) { 
+    E_SERIES['E96'].push(parseFloat((Math.pow(10, i/96)).toFixed(2))); 
+}
+// Fjern eventuelle dubletter og sorter stigende
+E_SERIES['E96'] = [...new Set(E_SERIES['E96'])].sort((a,b)=>a-b);
+
+//===========================================================================
+// SEKTION 3: GLOBALE VARIABLE
+//===========================================================================
+let charts = {};        // Objekt til at holde Chart.js instanser (mag, pz, phase, gd)
+let lastCalcData = null; // Gemmer seneste beregningsresultat til SPICE-eksport
+
+//===========================================================================
+// SEKTION 4: HJÆLPEFUNKTIONER (ENHEDSKONVERTERING, FORMATERING, E-RÆKKE)
+//===========================================================================
+
+// Funktion: toBase(val, unit)
+// Formål: Konverterer en værdi med enhed til basis SI-enhed (Hz, F, ...)
+// Parametre: 
+//   val - numerisk værdi
+//   unit - enhedsstreng ("Hz", "kHz", "MHz", "pF", "nF", "uF")
+// Retur: Værdi i basisenhed
+function toBase(val, unit) {
+    const mults = {
+        "Hz": 1, "kHz": 1e3, "MHz": 1e6,   // Frekvensmultiplikatorer
+        "pF": 1e-12, "nF": 1e-9, "uF": 1e-6  // Kapacitansmultiplikatorer
+    };
+    return val * (mults[unit] || 1);  // Hvis unit ikke findes, returneres val uændret
+}
+
+// Funktion: formatEng(val, type)
+// Formål: Formaterer en værdi med engineering-præfiks (k, M, µ, n, p)
+// Parametre:
+//   val - numerisk værdi i basisenhed
+//   type - 'R' for modstand (Ω) eller 'C' for kapacitans (F)
+// Retur: Streng med enhed
+function formatEng(val, type) {
+    if (val === 0) return "0";
+    if (type === 'R') {  // Modstandsformatering
+        if (val >= 1e6) return (val/1e6).toFixed(2) + " MΩ";
+        if (val >= 1e3) return (val/1e3).toFixed(2) + " kΩ";
+        return val.toFixed(2) + " Ω";
+    } else {  // Kapacitansformatering
+        if (val >= 1e-6) return (val*1e6).toFixed(2) + " µF";
+        if (val >= 1e-9) return (val*1e9).toFixed(2) + " nF";
+        return (val*1e12).toFixed(2) + " pF";
+    }
+}
+
+// Funktion: findClosestE(val, seriesName)
+// Formål: Finder den nærmeste standardværdi i en given E-række
+// Parametre:
+//   val - ønsket værdi
+//   seriesName - streng "E6", "E12", "E24", "E48", "E96"
+// Retur: Nærmeste standardværdi (med korrekt dekademultiplikator)
+function findClosestE(val, seriesName) {
+    if (!E_SERIES[seriesName] || val === 0) return val;  // Ingen match eller nul
+    
+    let mag = Math.floor(Math.log10(val));          // Dekadeeksponent (10^mag)
+    let norm = val / Math.pow(10, mag);              // Normaliseret til [1,10)
+    let series = E_SERIES[seriesName];
+    
+    let closest = series[0];
+    let minDiff = Math.abs(norm - closest);
+    
+    // Iterér gennem E-rækken og find minimum absolut afvigelse
+    for (let v of series) {
+        if (Math.abs(norm - v) < minDiff) {
+            minDiff = Math.abs(norm - v);
+            closest = v;
+        }
+    }
+    return closest * Math.pow(10, mag);  // Tilbagefør dekademultiplikator
+}
+
+// Funktion: findHigherE(val, seriesName)
+// Formål: Finder den mindste standardværdi i E-rækken der er >= val
+// Anvendelse: Kondensator C1 skal typisk vælges større end en minimumsværdi
+function findHigherE(val, seriesName) {
+    if (!E_SERIES[seriesName] || val === 0) return val;
+    
+    let mag = Math.floor(Math.log10(val));
+    let norm = val / Math.pow(10, mag);
+    let series = E_SERIES[seriesName];
+    
+    for (let v of series) {
+        if (v >= norm - 1e-9) return v * Math.pow(10, mag);
+    }
+    // Hvis ingen værdi i denne dekade, gå til næste dekade
+    return series[0] * Math.pow(10, mag + 1);
+}
+
+// Funktion: updateUI()
+// Formål: Opdaterer brugergrænsefladens labeltekster dynamisk
+// Kaldt når approksimationstype ændres (Butterworth vs Chebyshev)
+function updateUI() {
+    const approx = document.getElementById('approx').value;
+    const lblAc = document.getElementById('lblAc');
+    
+    if (approx === 'Butterworth') {
+        lblAc.innerText = 'Passband Atten (dB):';
+    } else {  // Chebyshev
+        lblAc.innerText = 'Chebyshev Ripple (dB):';
+        // Hvis standardværdien er 3 dB ripple, skift til mere realistisk 1 dB
+        if (document.getElementById('ac').value == 3) {
+            document.getElementById('ac').value = 1.0;
+        }
+    }
+}
+
+//===========================================================================
+// SEKTION 5: HOVEDBEREGNINGSFUNKTION (calculateFilter)
+//===========================================================================
+// Formål: Udfører komplet filterdesign baseret på brugerinput
+// Beregningstrin:
+//   1. Aflæsning og konvertering af inputparametre
+//   2. Beregning af nødvendig filterorden
+//   3. Beregning af poler (w0 og Q) for hvert 2. ordens trin
+//   4. Design af komponentværdier (R og C)
+//   5. Anvendelse af E-rækker
+//   6. Opdatering af tabel, grafer og status
+//===========================================================================
+function calculateFilter() {
+    // --- TRIN 1: Aflæsning af inputparametre ---
+    const type = document.getElementById('type').value;      // "LP" eller "HP"
+    const approx = document.getElementById('approx').value; // "Butterworth" eller "Chebyshev"
+    
+    // Konverter frekvenser til Hz
+    const fc = toBase(parseFloat(document.getElementById('fc').value), 
+                      document.getElementById('fc_unit').value);
+    const fs = toBase(parseFloat(document.getElementById('fs').value), 
+                      document.getElementById('fs_unit').value);
+    
+    const ac = parseFloat(document.getElementById('ac').value);  // Pasbåndsdæmpning/ripple
+    const as = parseFloat(document.getElementById('as').value);  // Stopbåndsdæmpning
+    
+    const cBase = toBase(parseFloat(document.getElementById('c_val').value), 
+                         document.getElementById('c_unit').value);  // Basis C2-værdi
+    const eC = document.getElementById('e_c').value;   // E-række for kondensatorer
+    const eR = document.getElementById('e_r').value;   // E-række for modstande
+
+    // --- TRIN 2: Ordenberegning ---
+    // ratio: For LP er det fs/fc, for HP er det fc/fs (spejling omkring fc)
+    const ratio = type === "LP" ? fs/fc : fc/fs;
+    
+    // Ordenformel for Butterworth/Chebyshev:
+    // N = log10((10^(As/10)-1)/(10^(Ac/10)-1)) / (2 * log10(ratio))
+    // Denne formel udledes fra dæmpningskravene i stopbåndet
+    let orderN = Math.log10((Math.pow(10, as/10)-1) / (Math.pow(10, ac/10)-1)) / 
+                 (2 * Math.log10(ratio));
+    let order = Math.max(2, Math.ceil(orderN));  // Minimum 2. orden
+    
+    // Sallen-Key implementeres bedst med lige orden (kaskadede 2. ordens trin)
+    if (order % 2 !== 0) order++;
+    
+    // Opdater visning af filterorden i UI
+    document.getElementById('lblOrder').innerText = 
+        `Filter Orden: ${order} (${order/2} Sektioner)`;
+
+    // --- TRIN 3: Polberegning (normaliserede poler) ---
+    let poles = [];  // Array af {w0, q} objekter
+    
+    if (approx === "Butterworth") {
+        // Butterworth: Poler ligger på enhedscirklen i s-planet
+        // Vinkler: (2k-1)*π/(2N) for k = 1..N
+        // Q = 1/(2*cos(θ)) for hvert polpar
+        for (let k = 1; k <= (order/2); k++) {
+            let theta = (2*k-1) * Math.PI / (2*order);
+            poles.push({ 
+                w0: 1.0,   // Normaliseret til 1 rad/s
+                q: 1.0 / (2 * Math.cos(theta)) 
+            });
+        }
+    } else {  // Chebyshev
+        // Chebyshev: Poler ligger på en ellipse i s-planet
+        const eps = Math.sqrt(Math.pow(10, ac/10) - 1);  // Ripple-faktor ε
+        const a = Math.asinh(1/eps) / order;             // Ellipse-parameter
+        
+        for (let k = 1; k <= (order/2); k++) {
+            const phi = (2*k-1) * Math.PI / (2*order);
+            const sigma = -Math.sinh(a) * Math.sin(phi);   // Real-del (negativ)
+            const omega = Math.cosh(a) * Math.cos(phi);    // Imaginær-del
+            const w0 = Math.sqrt(sigma*sigma + omega*omega);  // Afstand fra origo
+            poles.push({ 
+                w0: w0, 
+                q: w0 / (-2*sigma)   // Q = ω0/(2|σ|)
+            });
+        }
+    }
+
+    // --- TRIN 4: Komponentberegning for hvert 2. ordens trin ---
+    let tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';   // Ryd eksisterende tabelrækker
+    
+    let spiceData = [];      // Gemmer data til SPICE-eksport
+    let maxQ = 0;            // Sporing af maksimal Q-faktor (stabilitetsindikator)
+
+    // Iterér gennem hvert polpar (hvert 2. ordens trin)
+    poles.forEach((p, idx) => {
+        const i = idx + 1;   // Sektionsnummer (1-indekseret til visning)
+        
+        // Den faktiske afskæringsfrekvens for denne sektion
+        // For LP: ω0_act = ωc * p.w0
+        // For HP: ω0_act = ωc / p.w0 (spejling)
+        const w0Act = type === "LP" ? 2*Math.PI*fc * p.w0 : (2*Math.PI*fc) / p.w0;
+        const q = p.q;
+        maxQ = Math.max(maxQ, q);  // Opdater maksimal Q
+        
+        // Variabler til komponentværdier (eksakte og E-række-standardiserede)
+        let c1Ex, c2Ex, c1Std, c2Std, r1Ex, r2Ex, r1Std, r2Std;
+        let c1LblStr = "";  // Ekstra labeltekst til visning
+        
+        if (type === "LP") {
+            // --- LOW-PASS DESIGN ---
+            // Standardmetode: Vælg C2, beregn C1 >= 4·Q²·C2
+            
+            // Trin 1: Vælg C2 fra E-rækken (brugerens basisværdi)
+            c2Std = findClosestE(cBase, eC);
+            c2Ex = c2Std;   // Eksakt = standard (da vi tvinger C2)
+            
+            // Trin 2: Beregn minimum C1 for at sikre positive reelle rødder
+            let c1Min = c2Std * 4 * q * q;
+            c1Std = findHigherE(c1Min, eC);  // Vælg næste højere E-værdi
+            c1Ex = c1Min;   // Eksakt teoretisk minimumsværdi
+            c1LblStr = "Min: ";
+            
+            // Trin 3: Beregn modstande R1 og R2
+            // Udledt fra: R1,R2 = (1 ± √(1 - 4Q²C2/C1)) / (2·ω0·Q·C2)
+            let rad = 1 - (4 * q * q * c2Std / c1Std);
+            if (rad < 0) rad = 0;   // Sikkerhed: undgå negative kvadratrødder
+            
+            let fact = 1 / (2 * w0Act * q * c2Std);
+            r1Ex = fact * (1 - Math.sqrt(rad));   // Den mindre modstand (typisk R1)
+            r2Ex = fact * (1 + Math.sqrt(rad));   // Den større modstand (typisk R2)
+            
+        } else {  // type === "HP" (HIGH-PASS)
+            // --- HIGH-PASS DESIGN ---
+            // For HP vælges C1 = C2 = C (symmetrisk design)
+            c1Std = findClosestE(cBase, eC);
+            c2Std = c1Std;    // C1 = C2 for HP Sallen-Key
+            c1Ex = c2Ex = c1Std;
+            
+            // Modstandsberegning for HP:
+            // R1 = 1/(2·ω0·Q·C)
+            // R2 = (2·Q)/(ω0·C)
+            r1Ex = 1 / (2 * w0Act * q * c1Std);
+            r2Ex = (2 * q) / (w0Act * c1Std);
+        }
+        
+        // Anvend E-rækker på modstande
+        r1Std = findClosestE(r1Ex, eR);
+        r2Std = findClosestE(r2Ex, eR);
+        
+        // --- OPRET TABELRÆKKER FOR KOMPONENTERNE ---
+        const comps = [
+            {n: `R${i}1`, ex: r1Ex, std: r1Std, t: 'R', pre: ""},
+            {n: `R${i}2`, ex: r2Ex, std: r2Std, t: 'R', pre: ""},
+            {n: `C${i}1`, ex: c1Ex, std: c1Std, t: 'C', pre: c1LblStr},
+            {n: `C${i}2`, ex: c2Ex, std: c2Std, t: 'C', pre: ""}
+        ];
+        
+        comps.forEach(c => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${c.n}</td>
+                <td>${c.pre}${formatEng(c.ex, c.t)}</td>
+                <td class="${c.t==='C' ? 'text-green' : ''}">${formatEng(c.std, c.t)}</td>
+                <td>Q=${q.toFixed(3)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        // Gem data til SPICE-eksport
+        spiceData.push({
+            exact: {r1: r1Ex, r2: r2Ex, c1: c1Std, c2: c2Std},
+            std: {r1: r1Std, r2: r2Std, c1: c1Std, c2: c2Std}
+        });
+    });
+    
+    // --- TRIN 5: STABILITETSVURDERING ---
+    let lblStab = document.getElementById('lblStability');
+    if (maxQ < 3.0) {
+        lblStab.innerText = `Stabilitet: God (Max Q = ${maxQ.toFixed(2)})`;
+        lblStab.style.color = "#28a745";  // Grøn
+    } else {
+        lblStab.innerText = `Advarsel: Kritisk Q (Max Q = ${maxQ.toFixed(2)}) - Risiko for ringing!`;
+        lblStab.style.color = "#ff8c00";  // Orange
+    }
+    
+    // Gem data til SPICE-eksport og aktiver eksportknappen
+    lastCalcData = {fc: fc, type: type, stages: spiceData};
+    document.getElementById('btnSpice').disabled = false;
+    
+    // --- TRIN 6: GENERER GRAFER ---
+    plotBode(fc, poles, type);
+}
+
+//===========================================================================
+// SEKTION 6: BODE-PLOTS (plotBode)
+//===========================================================================
+// Formål: Genererer Bode-diagrammer (magnitude, fase, gruppeløbetid)
+//         samt pol-nul diagram
+// Parametre:
+//   fc - cutoff-frekvens i Hz
+//   poles - array af {w0, q} objekter (normaliserede poler)
+//   type - "LP" eller "HP"
+//===========================================================================
+function plotBode(fc, poles, type) {
+    // Generér logaritmisk frekvensarray fra fc/10 til fc*10 (500 punkter)
+    let freqs = [];
+    const minF = Math.log10(fc/10);
+    const maxF = Math.log10(fc*10);
+    for(let i = 0; i <= 500; i++) {
+        freqs.push(Math.pow(10, minF + (maxF - minF) * (i/500)));
+    }
+    
+    let mag = [];      // Magnitude-data (dB)
+    let phase = [];    // Fasedata (radianer)
+    const wc = 2 * Math.PI * fc;  // Vinkelfrekvens ved cutoff
+    let sNormPoles = [];  // Normaliserede poler til s-plan diagram
+    
+    // Beregn overføringsfunktionen for hver frekvens
+    freqs.forEach(f => {
+        const w = 2 * Math.PI * f;
+        let s = new Complex(0, w);   // s = jω (imaginær akse)
+        let H = new Complex(1, 0);   // Start med H(s)=1
+        
+        // Kaskadér hvert 2. ordens trin
+        poles.forEach(p => {
+            // Normaliseret pol (til s-plan diagram)
+            if(f === freqs[0]) {
+                const alpha = -p.w0 / (2 * p.q);
+                const beta = p.w0 * Math.sqrt(Math.abs(1 - 1/(4 * p.q * p.q)));
+                sNormPoles.push({x: alpha, y: beta});
+                sNormPoles.push({x: alpha, y: -beta});  // Kompleks konjugeret
+            }
+            
+            // Faktisk ω0 for denne sektion (afhænger af LP/HP)
+            const w0Act = type === "LP" ? wc * p.w0 : wc / p.w0;
+            
+            // Overføringsfunktion for 2. ordens Sallen-Key:
+            // H(s) = (K·ω0²) / (s² + s·ω0/Q + ω0²)
+            // For unity gain (K=1) forenkles til ω0² / (s² + s·ω0/Q + ω0²)
+            let s2 = s.mul(s);                          // s²
+            let sTerm = s.mul(new Complex(w0Act / p.q, 0)); // s·ω0/Q
+            let num = type === "LP" ? new Complex(w0Act * w0Act, 0) : s2;  // Tæller
+            let den = s2.add(sTerm).add(new Complex(w0Act * w0Act, 0));     // Nævner
+            
+            H = H.mul(num.div(den));  // Kaskadér
+        });
+        
+        mag.push({x: f, y: 20 * Math.log10(Math.max(H.mag(), 1e-12))});  // dB
+        phase.push(H.phase());  // Radianer
+    });
+    
+    // --- FASE-UDFOLDNING (Phase Unwrapping) ---
+    // For at undgå sprang på ±2π i fasekurven, foldes fasen ud
+    let unwrapPhase = [phase[0]];
+    for(let i = 1; i < phase.length; i++) {
+        let diff = phase[i] - phase[i-1];
+        // Korriger spring større end π (typisk fra -π til +π)
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        unwrapPhase.push(unwrapPhase[i-1] + diff);
+    }
+    
+    // Konverter fase til grader og beregn gruppeløbetid
+    let phaseDeg = [];
+    let gdData = [];
+    for(let i = 0; i < freqs.length; i++) {
+        phaseDeg.push({x: freqs[i], y: unwrapPhase[i] * 180 / Math.PI});
+        
+        // Gruppeløbetid: τ_g = -dφ/dω (i sekunder)
+        if(i > 0) {
+            let dw = 2 * Math.PI * (freqs[i] - freqs[i-1]);  // Δω i rad/s
+            let val = -(unwrapPhase[i] - unwrapPhase[i-1]) / dw * 1000;  // ms
+            gdData.push({x: freqs[i], y: val});
+        } else {
+            gdData.push({x: freqs[0], y: 0});
+        }
+    }
+    // Korriger første punkt så grafen ser pæn ud
+    gdData[0].y = gdData[1].y;
+    
+    // --- DEFINITION AF FÆLLES GRAFINDSTILLINGER ---
+    const commonOpt = { 
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: {display: false} },  // Ingen legend på disse grafer
+        scales: { 
+            x: { 
+                type: 'logarithmic',   // Logaritmisk frekvensakse
+                title: {display: true, text: 'Frekvens [Hz]'}
+            } 
+        }
+    };
+    
+    // Lodret hjælpelinje ved cutoff-frekvensen
+    const vline = { 
+        type: 'line', 
+        xMin: fc, xMax: fc, 
+        borderColor: 'rgba(255,0,0,0.5)', 
+        borderDash: [5,5], 
+        borderWidth: 2 
+    };
+    
+    // --- MAGNITUDEPLOT ---
+    if(charts.mag) charts.mag.destroy();  // Slet gammel graf for at undgå overlap
+    charts.mag = new Chart(document.getElementById('magChart'), {
+        type: 'line',
+        data: { datasets: [{ data: mag, borderColor: '#2c6c91', borderWidth: 2, pointRadius: 0 }] },
+        options: { 
+            ...commonOpt, 
+            plugins: { 
+                title: {display: true, text: 'Magnitude (dB)'},
+                annotation: { annotations: { 
+                    line1: vline,
+                    line2: { type: 'line', yMin: -3, yMax: -3, borderColor: 'rgba(0,128,0,0.5)', borderDash: [2,2] }
+                }}
+            },
+            scales: { ...commonOpt.scales, y: { title: {display: true, text: 'Gain [dB]'} } }
+        }
+    });
+    
+    // --- FASEPLOT ---
+    if(charts.phase) charts.phase.destroy();
+    charts.phase = new Chart(document.getElementById('phaseChart'), {
+        type: 'line',
+        data: { datasets: [{ data: phaseDeg, borderColor: '#4a9ed8', borderWidth: 2, pointRadius: 0 }] },
+        options: { 
+            ...commonOpt, 
+            plugins: { title: {display: true, text: 'Fase (Grader)'}, annotation: { annotations: { line1: vline }}},
+            scales: { ...commonOpt.scales, y: { title: {display: true, text: 'Fase [°]'} } }
+        }
+    });
+    
+    // --- GRUPPELØBETIDSPLOT ---
+    if(charts.gd) charts.gd.destroy();
+    charts.gd = new Chart(document.getElementById('gdChart'), {
+        type: 'line',
+        data: { datasets: [{ data: gdData, borderColor: '#d9534f', borderWidth: 2, pointRadius: 0 }] },
+        options: { 
+            ...commonOpt, 
+            plugins: { title: {display: true, text: 'Gruppeløbetid (Group Delay)'}, annotation: { annotations: { line1: vline }}},
+            scales: { ...commonOpt.scales, y: { title: {display: true, text: 'Delay [ms]'} } }
+        }
+    });
+    
+    // --- POL-NUL DIAGRAM (S-PLAN) ---
+    // Tegn enhedscirklen (|s| = 1) som reference
+    let circle = [];
+    for(let i = 0; i <= 60; i++) {
+        let th = (i/60) * 2 * Math.PI;
+        circle.push({x: Math.cos(th), y: Math.sin(th)});
+    }
+    
+    if(charts.pz) charts.pz.destroy();
+    charts.pz = new Chart(document.getElementById('pzChart'), {
+        type: 'scatter',
+        data: { datasets: [
+            { type: 'line', data: circle, borderColor: '#ddd', borderDash: [5,5], pointRadius: 0, fill: false },
+            { type: 'scatter', data: sNormPoles, backgroundColor: 'red', borderColor: 'red', 
+              pointStyle: 'crossRot', pointRadius: 8, pointBorderWidth: 2 }
+        ]},
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: {display: false}, title: {display: true, text: 'Pol-Diagram (S-plan, Normaliseret)'} },
+            scales: { 
+                x: { type: 'linear', min: -1.5, max: 1.5, title: {display: true, text: 'Re(s) / ωc'} },
+                y: { min: -1.5, max: 1.5, title: {display: true, text: 'Im(s) / ωc'} }
+            }
+        }
+    });
+}
+
+//===========================================================================
+// SEKTION 7: SPICE-EKSPORT (exportSpice)
+//===========================================================================
+// Formål: Genererer en netliste i SPICE-format (.cir) til ekstern simulering
+// Anvendelse: Simulering i LTspice, NGSPICE, eller andre SPICE-kompatible værktøjer
+//===========================================================================
+function exportSpice() {
+    if (!lastCalcData) return;  // Intet data at eksportere
+    
+    const useStd = document.getElementById('spiceStd').checked;  // Brug E-række?
+    const d = lastCalcData;
+    const headerText = useStd ? "E-række R-værdier" : "Eksakte matematiske R-værdier (C er standard)";
+    
+    // Netlistens første linjer: Titel og indgangsspændingskilde
+    let net = [`* Sallen-Key ${d.type} Filter (${headerText})`, "Vin n0 0 AC 1"];
+    
+    // Generér netliste for hvert 2. ordens trin
+    d.stages.forEach((s, idx) => {
+        const i = idx + 1;
+        const vals = useStd ? s.std : s.exact;  // Vælg standard eller eksakte værdier
+        
+        // Knudepunktsnavne:
+        // n0: indgang til første sektion
+        // n(i-1): indgang til sektion i
+        // n(i)m: midterknude mellem R1/R2 (LP) eller C1/C2 (HP)
+        // n(i)p: positiv indgang til operationsforstærker
+        // n(i): udgang fra sektion i (indgang til næste)
+        const pNode = `n${i-1}`;
+        const mid = `n${i}m`;
+        const pos = `n${i}p`;
+        const out = (i === d.stages.length) ? "OUT" : `n${i}`;
+        
+        if (d.type === "LP") {
+            // Low-pass netliste: R1, R2 i serie, C1 fra mid til out, C2 fra pos til GND
+            net.push(`R${i}1 ${pNode} ${mid} ${vals.r1.toFixed(2)}`);
+            net.push(`R${i}2 ${mid} ${pos} ${vals.r2.toFixed(2)}`);
+            net.push(`C${i}1 ${mid} ${out} ${vals.c1.toExponential(4)}`);
+            net.push(`C${i}2 ${pos} 0 ${vals.c2.toExponential(4)}`);
+        } else {
+            // High-pass netliste: C1, C2 i serie, R1 fra mid til out, R2 fra pos til GND
+            net.push(`C${i}1 ${pNode} ${mid} ${vals.c1.toExponential(4)}`);
+            net.push(`C${i}2 ${mid} ${pos} ${vals.c2.toExponential(4)}`);
+            net.push(`R${i}1 ${mid} ${out} ${vals.r1.toFixed(2)}`);
+            net.push(`R${i}2 ${pos} 0 ${vals.r2.toFixed(2)}`);
+        }
+        
+        // Spændingsstyret spændingskilde (VCVS) med forstærkning 1 (buffer)
+        // Dette modellerer operationsforstærkeren i unity-gain konfiguration
+        net.push(`E${i} ${out} 0 ${pos} ${out} 1E6`);
+    });
+    
+    // Tilføj analysekommandoer: AC sweep fra 10 Hz til 1 MHz, 100 punkter pr. dekade
+    net.push(".ac dec 100 10 1Meg");
+    // Mål dæmpningen ved cutoff-frekvensen
+    net.push(`.meas AC Gain_ved_fc FIND vdb(OUT) AT ${d.fc}`);
+    net.push(".end");
+    
+    // Opret download af filen
+    const blob = new Blob([net.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "filter.cir";
+    a.click();
+    URL.revokeObjectURL(url);  // Frigiv hukommelse
+}
+
+//===========================================================================
+// SEKTION 8: INITIALISERING
+//===========================================================================
+updateUI();  // Sæt korrekte labels ved start
+</script>
+</body>
+</html>
