@@ -1,6 +1,3 @@
-# Active-Filter-Design
-Program pakke til design af aktive filtre (HTML, MATLAB og Python)
-
 # Active Filter design program
 **Version 1.0 - Professionelt værktøj til design og analyse af aktive analoge filtre**
 
